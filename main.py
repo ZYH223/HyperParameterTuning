@@ -36,7 +36,8 @@ def load_cifar10(trn_val_capacity=-1, tst_capacity=-1):
 def make_dataloader(dataset, _batch_size, shuffle=True):
     batch_number = math.ceil(len(dataset) / _batch_size)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=_batch_size,
-                                             shuffle=shuffle, num_workers=1)
+                                             shuffle=shuffle, num_workers=1,
+                                             drop_last=True)
     return dataloader, batch_number
 
 
@@ -46,6 +47,13 @@ def show_img(img):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
+
+def count_time(name, last_time):
+    new_time = time.time()
+    print(f'{name} complete in {new_time - last_time}s')
+    last_time = new_time
+    return new_time
 
 
 class SimpleNet(nn.Module):
@@ -72,21 +80,62 @@ class LeNet5(nn.Module):
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
-    def forward(self, z):
-        z = self.pool(functional.relu(self.conv1(z)))
-        z = self.pool(functional.relu(self.conv2(z)))
-        z = z.view(-1, 16 * 5 * 5)
-        z = functional.relu(self.fc1(z))
-        z = functional.relu(self.fc2(z))
-        z = self.fc3(z)
-        return z
+    def forward(self, x):
+        x = self.pool(functional.relu(self.conv1(x)))
+        x = self.pool(functional.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        x = functional.relu(self.fc1(x))
+        x = functional.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 
-def count_time(name, last_time):
-    new_time = time.time()
-    print(f'{name} complete in {new_time - last_time}s')
-    last_time = new_time
-    return new_time
+class VGG16(nn.Module):
+    """
+    VGG builder
+    """
+    def __init__(self, num_classes=10):
+        super(VGG16, self).__init__()
+        self.in_channels = 3
+        self.conv3_16 = self.__make_layer(16, 2)
+        self.conv3_32 = self.__make_layer(32, 2)
+        self.conv3_64 = self.__make_layer(64, 3)
+        self.conv3_128a = self.__make_layer(128, 3)
+        self.conv3_128b = self.__make_layer(128, 3)
+        self.fc1 = nn.Linear(1*1*128, 128)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.fc2 = nn.Linear(128, 128)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.fc3 = nn.Linear(128, num_classes)
+
+    def __make_layer(self, channels, num):
+        layers = []
+        for i in range(num):
+            layers.append(nn.Conv2d(self.in_channels, channels, 3, stride=1, padding=1, bias=False))  # same padding
+            layers.append(nn.BatchNorm2d(channels))
+            layers.append(nn.ReLU())
+            self.in_channels = channels
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv3_16(x)
+        x = functional.max_pool2d(x, 2)
+        x = self.conv3_32(x)
+        x = functional.max_pool2d(x, 2)
+        x = self.conv3_64(x)
+        x = functional.max_pool2d(x, 2)
+        x = self.conv3_128a(x)
+        x = functional.max_pool2d(x, 2)
+        x = self.conv3_128b(x)
+        x = functional.max_pool2d(x, 2)
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.bn1(x)
+        x = functional.relu(x)
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = functional.relu(x)
+        return functional.softmax(self.fc3(x), dim=0)
 
 
 if __name__ == '__main__':
@@ -100,8 +149,8 @@ if __name__ == '__main__':
     # Loss Function
     # Optimizer
 
-    # batch_size_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    batch_size_list = [4]
+    # batch_size_list = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    batch_size_list = [8]
     for batch_size in batch_size_list:
         # 1st Step: Load and process dataset
         # loss_iter_cap = math.ceil((50000.0 / batch_size) / 5)
@@ -116,7 +165,7 @@ if __name__ == '__main__':
         test_loader, _ = make_dataloader(test_set, batch_size)
 
         # 2nd Step: Initialize
-        net = LeNet5()
+        net = VGG16()
         net.to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
@@ -184,6 +233,6 @@ if __name__ == '__main__':
                 test_size, 100 * accuracy))
 
     # 5th Step(Optional): Save the model to disk
-    torch.save(net.state_dict(), './model/LeNet5.pt')
+    torch.save(net.state_dict(), './model/VGG16.pt')
     # model.load_state_dict(torch.load('\parameter.pkl'))
 
