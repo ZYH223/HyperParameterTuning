@@ -4,8 +4,8 @@
 
 This repository contains:
 
-- [models](https://github.com/StanfordVL/taskonomy/tree/master/taskbank) [PyTorch].
-- [code](https://github.com/StanfordVL/taskonomy/tree/master/code)
+- [models](https://github.com/ZYH223/HyperParameterTuning/tree/master/model) [PyTorch].
+- code
 - results and hyper-parameter analysis
 
 | About This Program                                           | Dataset                                                      |
@@ -28,9 +28,9 @@ This project use pytorch as the  program framework, so this program contains the
 | 100                        |      | 57.34% | 76.48% |          |
 | 200                        |      |        |        | 84.73%   |
 
-![FC2 bs4 ep200](results/FC2 bs4 ep200.png)
+![FC2 bs4 ep200](results/FC2_bs4_ep200.png)
 
-![ResNet18 bs8 ep200](results/ResNet18 bs8 ep200.png)
+![ResNet18 bs8 ep200](results/ResNet18_bs8_ep200.png)
 
 ## Experiment on some hyper-parameter
 
@@ -51,7 +51,7 @@ The running loss of tuning batch-size on **LeNet5** in 2 epoch are as follows:
 | Sample6   | 1.33       | 1.298      | 1.377      | 1.549       | 1.811       | 2.176       | 2.301        | 2.302        | 2.303        | 2.303         |
 | Sample7   | 1.30       | 1.258      | 1.36       | 1.501       | 1.755       | 2.098       | 2.3          | 2.301        | 2.303        | 2.302         |
 
-![LeNet5 Running Loss](results/LeNet5 Running Loss.png)
+![LeNet5 Running Loss](results/LeNet5_Running_Loss.png)
 
 It is obvious that batch size 2 and 4 have a better performance on training.
 
