@@ -206,10 +206,8 @@ if __name__ == '__main__':
     print('using device ' + str(device))
 
     # TODO
-    # Epoch BatchSize Tuning
     # Regularization & Random Dropout
     # Loss Function
-    # Optimizer
 
     # batch_size_list = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
     batch_size_list = [8]
@@ -229,10 +227,10 @@ if __name__ == '__main__':
         test_loader, _ = make_dataloader(test_set, batch_size)
 
         # 2nd Step: Initialize
-        net = ResNet18().to(device)
+        net = VGG16().to(device)
         criterion = nn.CrossEntropyLoss()
-        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-        optimizer = optim.Adam(net.parameters())
+        optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        # optimizer = optim.Adam(net.parameters())
 
         # 3rd Step: Training NN
         print('epoch    accuracy    time    learning_rate')
@@ -319,5 +317,6 @@ if __name__ == '__main__':
         plt.show()
 
     # 5th Step(Optional): Save the model and statistical data
-    torch.save(net.state_dict(), './model/ResNet18.pt')
+    # torch.save(net.state_dict(), './model/ResNet18.pt')
+    torch.save(net.state_dict(), './model/VGG16.pt')
     # model.load_state_dict(torch.load('\parameter.pkl'))
