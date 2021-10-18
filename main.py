@@ -6,7 +6,9 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as functional
 import torch.optim as optim
+import torch.optim.lr_scheduler
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import MultipleLocator
 import numpy as np
 
 
@@ -91,9 +93,6 @@ class LeNet5(nn.Module):
 
 
 class VGG16(nn.Module):
-    """
-    VGG builder
-    """
     def __init__(self, num_classes=10):
         super(VGG16, self).__init__()
         self.in_channels = 3
@@ -102,7 +101,7 @@ class VGG16(nn.Module):
         self.conv3_64 = self.__make_layer(64, 3)
         self.conv3_128a = self.__make_layer(128, 3)
         self.conv3_128b = self.__make_layer(128, 3)
-        self.fc1 = nn.Linear(1*1*128, 128)
+        self.fc1 = nn.Linear(1 * 1 * 128, 128)
         self.bn1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 128)
         self.bn2 = nn.BatchNorm1d(128)
@@ -138,6 +137,69 @@ class VGG16(nn.Module):
         return functional.softmax(self.fc3(x), dim=0)
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channel, out_channel, stride=1):
+        super(ResidualBlock, self).__init__()
+        self.left = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(out_channel),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(out_channel)
+        )
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channel != out_channel:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channel, out_channel, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channel)
+            )
+
+    def forward(self, x):
+        out = self.left(x)
+        out += self.shortcut(x)
+        out = functional.relu(out)
+        return out
+
+
+class ResNet(nn.Module):
+    def __init__(self, ResidualBlock, num_classes=10):
+        super(ResNet, self).__init__()
+        self.in_channel = 64
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+        self.layer1 = self.make_layer(ResidualBlock, 64, 2, stride=1)
+        self.layer2 = self.make_layer(ResidualBlock, 128, 2, stride=2)
+        self.layer3 = self.make_layer(ResidualBlock, 256, 2, stride=2)
+        self.layer4 = self.make_layer(ResidualBlock, 512, 2, stride=2)
+        self.fc = nn.Linear(512, num_classes)
+
+    def make_layer(self, block, channels, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)  # strides=[1,1]
+        layers = []
+        for stride in strides:
+            layers.append(block(self.in_channel, channels, stride))
+            self.in_channel = channels
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        out = self.conv1(x)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = functional.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+        return out
+
+
+def ResNet18():
+    return ResNet(ResidualBlock)
+
+
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # Assume that we are on a CUDA machine, then this should print a CUDA device:
@@ -154,7 +216,9 @@ if __name__ == '__main__':
     for batch_size in batch_size_list:
         # 1st Step: Load and process dataset
         # loss_iter_cap = math.ceil((50000.0 / batch_size) / 5)
-        epoch_size = 100
+        plot_epoch = []
+        plot_accuracy = []
+        epoch_size = 200
         print('Load data with batch size of ' + str(batch_size))
         train_set, validate_set, test_set, classes = load_cifar10()
         train_size = len(train_set)
@@ -165,18 +229,19 @@ if __name__ == '__main__':
         test_loader, _ = make_dataloader(test_set, batch_size)
 
         # 2nd Step: Initialize
-        net = VGG16()
-        net.to(device)
+        net = ResNet18().to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        optimizer = optim.Adam(net.parameters())
 
         # 3rd Step: Training NN
-        print('epoch    accuracy    time')
+        print('epoch    accuracy    time    learning_rate')
         train_start = time.time()
         for epoch in range(epoch_size):
             # Train
             # running_loss = 0.0
             epoch_start = time.time()
+            net.train()
             # cur_time = epoch_start
             for i, data in enumerate(train_loader):
                 inputs, labels = data
@@ -197,18 +262,26 @@ if __name__ == '__main__':
                 #     print('[%d, %5d*%4d] loss: %.3f' %
                 #           (epoch + 1, i + 1, batch_size, running_loss / loss_iter_cap))
                 #     running_loss = 0.0
+
             # Validate
-            correct = 0
-            for i, data in enumerate(validate_loader):
-                inputs, labels = data
-                # inputs = inputs.reshape(inputs.shape[0],
-                #                         inputs.shape[1] * inputs.shape[2] * inputs.shape[3])
-                inputs, labels = inputs.to(device), labels.to(device)
-                outputs = net(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                correct += (predicted == labels).sum().item()
-            accuracy = correct / validate_size
-            print(f'{epoch+1:<5d}\t{accuracy:2.2%}\t\t{time.time()-epoch_start:.2f}s')
+            with torch.no_grad():
+                net.eval()
+                correct = 0
+                for i, data in enumerate(validate_loader):
+                    inputs, labels = data
+                    # inputs = inputs.reshape(inputs.shape[0],
+                    #                         inputs.shape[1] * inputs.shape[2] * inputs.shape[3])
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs = net(inputs)
+                    _, predicted = torch.max(outputs.data, 1)
+                    correct += (predicted == labels).sum().item()
+                accuracy = correct / validate_size
+            print(f'{epoch + 1:<5d}\t'
+                  f'{accuracy:2.2%}\t\t'
+                  f'{time.time() - epoch_start:.2f}s\t'
+                  f'{optimizer.param_groups[0]["lr"]:f}')
+            plot_epoch.append(epoch + 1)
+            plot_accuracy.append(accuracy)
             # print('epoch%-4d Accuracy on validate set: %d %%' % (
             #     epoch + 1, 100 * accuracy))
             # print(f'Total time consume:{time.time() - epoch_start}s')
@@ -218,21 +291,33 @@ if __name__ == '__main__':
         print('Training finished with ' + str(train_end - train_start) + 's')
 
         # 4th Step: Validate the results and performance
-        correct = 0
-        for i, data in enumerate(test_loader):
-            inputs, labels = data
-            # inputs = inputs.reshape(inputs.shape[0],
-            #                         inputs.shape[1] * inputs.shape[2] * inputs.shape[3])
-            inputs, labels = inputs.to(device), labels.to(device)
-            # print(inputs.shape)
-            outputs = net(inputs)
-            _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
-        accuracy = correct / test_size
+        with torch.no_grad():
+            net.eval()
+            correct = 0
+            for i, data in enumerate(test_loader):
+                inputs, labels = data
+                # inputs = inputs.reshape(inputs.shape[0],
+                #                         inputs.shape[1] * inputs.shape[2] * inputs.shape[3])
+                inputs, labels = inputs.to(device), labels.to(device)
+                # print(inputs.shape)
+                outputs = net(inputs)
+                _, predicted = torch.max(outputs.data, 1)
+                correct += (predicted == labels).sum().item()
+            accuracy = correct / test_size
         print('Accuracy of the network on the %d test images: %d %%' % (
-                test_size, 100 * accuracy))
+            test_size, 100 * accuracy))
 
-    # 5th Step(Optional): Save the model to disk
-    torch.save(net.state_dict(), './model/VGG16.pt')
+        fig, ax = plt.subplots()
+        ax.plot(plot_epoch, plot_accuracy)
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.yaxis.set_major_locator(MultipleLocator(0.1))
+        plt.ylim(0, 1.0)
+        ax.set(xlabel='epoch', ylabel='accuracy',
+               title='Training accuracy on validate set')
+        ax.grid()
+        fig.savefig("Training accuracy.png")
+        plt.show()
+
+    # 5th Step(Optional): Save the model and statistical data
+    torch.save(net.state_dict(), './model/ResNet18.pt')
     # model.load_state_dict(torch.load('\parameter.pkl'))
-
