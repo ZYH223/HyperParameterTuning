@@ -58,9 +58,9 @@ def count_time(name, last_time):
     return new_time
 
 
-class SimpleNet(nn.Module):
+class FC2(nn.Module):
     def __init__(self):
-        super(SimpleNet, self).__init__()
+        super(FC2, self).__init__()
         self.hidden1 = nn.Linear(3 * 32 * 32, 32 * 32)
         self.hidden2 = nn.Linear(32 * 32, 32)
         self.output = nn.Linear(32, 10)
@@ -205,17 +205,14 @@ if __name__ == '__main__':
     # Assume that we are on a CUDA machine, then this should print a CUDA device:
     print('using device ' + str(device))
 
-    # TODO
-    # Regularization & Random Dropout
-    # Loss Function
-
     # batch_size_list = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    batch_size_list = [8]
+    batch_size_list = [4]
     for batch_size in batch_size_list:
         # 1st Step: Load and process dataset
         # loss_iter_cap = math.ceil((50000.0 / batch_size) / 5)
         plot_epoch = []
         plot_accuracy = []
+        plot_time = []
         epoch_size = 200
         print('Load data with batch size of ' + str(batch_size))
         train_set, validate_set, test_set, classes = load_cifar10()
@@ -227,7 +224,7 @@ if __name__ == '__main__':
         test_loader, _ = make_dataloader(test_set, batch_size)
 
         # 2nd Step: Initialize
-        net = VGG16().to(device)
+        net = LeNet5().to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
         # optimizer = optim.Adam(net.parameters())
@@ -280,13 +277,14 @@ if __name__ == '__main__':
                   f'{optimizer.param_groups[0]["lr"]:f}')
             plot_epoch.append(epoch + 1)
             plot_accuracy.append(accuracy)
+            plot_time.append(time.time() - epoch_start)
             # print('epoch%-4d Accuracy on validate set: %d %%' % (
             #     epoch + 1, 100 * accuracy))
             # print(f'Total time consume:{time.time() - epoch_start}s')
 
         torch.cuda.synchronize()
         train_end = time.time()
-        print('Training finished with ' + str(train_end - train_start) + 's')
+        print(f'Training finished with {sum(plot_time):.2f}s({sum(plot_time)/len(plot_time):.2f}s on average)')
 
         # 4th Step: Validate the results and performance
         with torch.no_grad():
@@ -314,9 +312,9 @@ if __name__ == '__main__':
                title='Training accuracy on validate set')
         ax.grid()
         fig.savefig("Training accuracy.png")
-        plt.show()
+        # plt.show()
 
     # 5th Step(Optional): Save the model and statistical data
     # torch.save(net.state_dict(), './model/ResNet18.pt')
-    torch.save(net.state_dict(), './model/VGG16.pt')
-    # model.load_state_dict(torch.load('\parameter.pkl'))
+    # torch.save(net.state_dict(), './model/FC2.pt')
+    torch.save(net.state_dict(), './model/model.pt')

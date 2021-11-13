@@ -1,4 +1,4 @@
-# A Tuning Experiment on CIFAR-10
+# An Experiment on CIFAR-10
 
 ## About
 
@@ -6,7 +6,7 @@ This repository contains:
 
 - [models](https://github.com/ZYH223/HyperParameterTuning/tree/master/model) [PyTorch].
 - code
-- results and hyper-parameter analysis
+- experiments
 
 | About This Program                                           | Dataset                                                      |
 | :----------------------------------------------------------- | :----------------------------------------------------------- |
@@ -19,18 +19,9 @@ This project use pytorch as the  program framework, so this program contains the
 
 ## Results
 
-| epoch/accuracy on validate | FC2  | LeNet5 | VGG16  | ResNet18 |
-| :------------------------- | ---- | ------ | ------ | -------- |
-| 1                          | 44%  | 49.00% | 40.80% | 69.12%   |
-| 5                          |      | 60.34% | 54.12% | 76.84%   |
-| 10                         |      | 62.72% | 59.98% | 83.76%   |
-| 50                         |      | 58.52% | 71.90% |          |
-| 100                        |      | 57.34% | 76.48% |          |
-| 200                        |      |        |        | 84.73%   |
-
-![FC2 bs4 ep200](results/FC2_bs4_ep200.png)
-
-![ResNet18 bs8 ep200](results/ResNet18_bs8_ep200.png)
+|              | FC2    | LeNet5 | VGG16  | ResNet18 |
+| ------------ | ------ | ------ | ------ | -------- |
+| **Accuracy** | 51.56% | 50.60% | 79.00% | 84.73%   |
 
 ## Experiment on some hyper-parameter
 
@@ -57,5 +48,24 @@ It is obvious that batch size 2 and 4 have a better performance on training.
 
 ### Epoch
 
-### learning rate
+Epoch means the number of iteration on the total training set. Generally, accuracy on the training set will reach some limitation with epoch growing. Different models have a different performance on convergence speed and the final result. However, if the model learns too much epochs on the training set, the accuracy on test set will drop, which means overfitted. Here we show the accuracy for the models we test with epochs growing.
+
+| epoch/accuracy | FC2    | LeNet5 | VGG16  | ResNet18 |
+| :------------- | ------ | ------ | ------ | -------- |
+| 1              | 45.62% | 45.84% | 39.92% | 69.12%   |
+| 5              | 52.62% | 59.86% | 56.48% | 76.84%   |
+| 10             | 52.16% | 63.78% | 61.70% | 83.76%   |
+| 50             | 52.88% | 58.52% | 72.82% | 85.12%   |
+| 100            | 51.42% | 58.18% | 77.92% | 85.58%   |
+| 200            | 51.56% | 50.60% | 79.00% | 84.73%   |
+
+![FC2 bs4 ep200](results/FC2_bs4_ep200.png)
+
+![LeNet5_bs4_ep200](results/LeNet5_bs4_ep200.png)
+
+![VGG16_bs8_ep200](results/VGG16_bs8_ep200.png)
+
+![ResNet18 bs8 ep200](results/ResNet18_bs8_ep200.png)
+
+
 
